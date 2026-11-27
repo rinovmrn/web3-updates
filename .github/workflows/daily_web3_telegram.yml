@@ -2,8 +2,8 @@ name: Daily Web3 Updates to Telegram
 
 on:
   schedule:
-    # Berjalan otomatis setiap hari pukul 00:30 UTC (07:30 WIB)
-    - cron: '30 0 * * *'
+    # Berjalan otomatis setiap hari pukul 03:00 UTC (10:00 WIB)
+    - cron: '0 3 * * *'
   workflow_dispatch:
 
 jobs:
