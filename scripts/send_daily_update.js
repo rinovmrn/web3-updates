@@ -1,5 +1,9 @@
+const fs = require('fs');
+const path = require('path');
+
 const BOT_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
 const CHAT_ID = (process.env.TELEGRAM_CHAT_ID || '').trim();
+const SEEN_FILE = path.join(__dirname, '.seen_headlines.json');
 
 if (!BOT_TOKEN || !CHAT_ID) {
   console.error('ERROR: TELEGRAM_BOT_TOKEN atau TELEGRAM_CHAT_ID kosong!');
@@ -14,7 +18,32 @@ function decodeXmlEntities(str) {
     .replace(/&quot;/g, '"')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
+    .replace(/\s+/g, ' ')
     .trim();
+}
+
+function shortenTitle(title, maxLen = 115) {
+  if (title.length <= maxLen) return title;
+  return `${title.slice(0, maxLen - 1).trim()}…`;
+}
+
+function loadSeenHeadlines() {
+  try {
+    if (!fs.existsSync(SEEN_FILE)) return [];
+    const parsed = JSON.parse(fs.readFileSync(SEEN_FILE, 'utf8'));
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveSeenHeadlines(list) {
+  try {
+    const trimmed = list.slice(-120);
+    fs.writeFileSync(SEEN_FILE, JSON.stringify(trimmed, null, 2), 'utf8');
+  } catch (err) {
+    console.warn('Could not write seen headlines cache:', err.message);
+  }
 }
 
 async function fetchCryptoPrices() {
@@ -46,29 +75,38 @@ async function fetchFearAndGreed() {
     const data = await res.json();
     const item = data?.data?.[0];
     return item ? `${item.value} (${item.value_classification})` : '22 (Extreme Fear)';
-  } catch (err) {
+  } catch {
     return '22 (Extreme Fear)';
   }
 }
 
-async function fetchSectorHeadlines(feeds, keywords = [], fallbackItems = []) {
+async function fetchSectorHeadlines(feeds, keywords = [], fallbackItems = [], seenSet = new Set(), newlySeen = []) {
   const matched = [];
+  const fallbackCandidates = [];
 
   for (const url of feeds) {
     try {
       const res = await fetch(url, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Web3DailyBot/1.0)' }
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Web3DailyBot/1.1)' }
       });
       if (!res.ok) continue;
       const xml = await res.text();
       const titles = [...xml.matchAll(/<item>[\s\S]*?<title>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/title>[\s\S]*?<\/item>/g)]
-        .map((m) => decodeXmlEntities(m[1]));
+        .map((m) => shortenTitle(decodeXmlEntities(m[1])));
 
       for (const title of titles) {
-        if (matched.length >= 3) break;
-        const isMatch = keywords.length === 0 || keywords.some((kw) => title.toLowerCase().includes(kw.toLowerCase()));
-        if (isMatch && !matched.includes(title)) {
-          matched.push(title);
+        if (!title || matched.includes(title)) continue;
+        const isMatch =
+          keywords.length === 0 ||
+          keywords.some((kw) => title.toLowerCase().includes(kw.toLowerCase()));
+
+        if (isMatch) {
+          if (!seenSet.has(title) && matched.length < 3) {
+            matched.push(title);
+            newlySeen.push(title);
+          } else if (fallbackCandidates.length < 3) {
+            fallbackCandidates.push(title);
+          }
         }
       }
     } catch (e) {
@@ -76,9 +114,15 @@ async function fetchSectorHeadlines(feeds, keywords = [], fallbackItems = []) {
     }
   }
 
+  for (const cand of fallbackCandidates) {
+    if (matched.length >= 3) break;
+    if (!matched.includes(cand)) matched.push(cand);
+  }
+
   for (const fb of fallbackItems) {
     if (matched.length >= 3) break;
-    if (!matched.includes(fb)) matched.push(fb);
+    const cleanFb = shortenTitle(fb);
+    if (!matched.includes(cleanFb)) matched.push(cleanFb);
   }
 
   return matched
@@ -114,6 +158,10 @@ async function sendTelegramMessage(text) {
 }
 
 async function main() {
+  const seenList = loadSeenHeadlines();
+  const seenSet = new Set(seenList);
+  const newlySeen = [];
+
   const dateStrEn = new Date().toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric'
@@ -122,7 +170,9 @@ async function main() {
   const feeds = [
     'https://www.coindesk.com/arc/outboundfeeds/rss/',
     'https://cointelegraph.com/rss',
-    'https://decrypt.co/feed'
+    'https://decrypt.co/feed',
+    'https://thedefiant.io/feed',
+    'https://www.dlnews.com/arc/outboundfeeds/rss/'
   ];
 
   const [prices, sentiment, marketNews, securityNews, aiNews, airdropCreatorNews, generalNews] = await Promise.all([
@@ -130,52 +180,61 @@ async function main() {
     fetchFearAndGreed(),
     fetchSectorHeadlines(
       feeds,
-      ['bitcoin', 'ethereum', 'solana', 'etf', 'market', 'price', 'fed', 'macro', 'rwa', 'inflow'],
+      ['bitcoin', 'ethereum', 'solana', 'etf', 'market', 'price', 'fed', 'macro', 'rwa', 'inflow', 'treasury'],
       [
-        'Traders are closely watching key support and resistance levels across BTC, ETH, and SOL.',
-        'Capital rotation across majors, yield/commodity-backed RWA tokens, and US tech equities remains a central focus.',
-        'Derivatives volume and spot inflows are key signals to gauge whether sell pressure is cooling off.'
-      ]
+        'Traders watch key support and resistance across BTC, ETH, and SOL.',
+        'Capital rotation across majors, RWA tokens, and US equities stays in focus.',
+        'Spot inflows and derivatives funding signal whether sell pressure is easing.'
+      ],
+      seenSet,
+      newlySeen
     ),
     fetchSectorHeadlines(
       feeds,
-      ['hack', 'exploit', 'phishing', 'security', 'scam', 'vulnerability', 'drain', 'breach', 'audit'],
+      ['hack', 'exploit', 'phishing', 'security', 'scam', 'vulnerability', 'drain', 'breach', 'audit', 'drainer'],
       [
-        'Phishing campaigns using spoofed domains that mimic popular staking and reward claim portals continue to circulate on X.',
-        'Security researchers highlight risks from unlimited token approvals on legacy router contracts—revoke unused allowances regularly.',
-        'Address poisoning attacks are still targeting high-value stablecoin transfers; always verify both the start and end of recipient addresses.'
-      ]
+        'Spoofed claim portals and phishing ads continue circulating on X.',
+        'Revoke unused token approvals on legacy router contracts regularly.',
+        'Address poisoning targets high-value transfers—verify full start & end chars.'
+      ],
+      seenSet,
+      newlySeen
     ),
     fetchSectorHeadlines(
       feeds,
-      ['ai', 'agent', 'depin', 'compute', 'gpu', 'bittensor', 'render', 'fetch', 'model'],
+      ['ai', 'agent', 'depin', 'compute', 'gpu', 'bittensor', 'render', 'fetch', 'model', 'inference'],
       [
-        'On-chain autonomous AI agents are seeing rising activity for automated liquidity management and real-time market monitoring.',
-        'Decentralized compute and DePIN networks are expanding distributed inference capacity for Web3 builders.',
-        'Cryptographic proof systems for verifying AI model outputs are gaining traction as demand for verifiable compute grows.'
-      ]
+        'Autonomous on-chain AI agents see growing use in liquidity and alert flows.',
+        'Decentralized compute and DePIN networks expand distributed inference capacity.',
+        'Verifiable AI proof systems gain traction as compute demand scales.'
+      ],
+      seenSet,
+      newlySeen
     ),
     fetchSectorHeadlines(
       feeds,
-      ['airdrop', 'testnet', 'quest', 'points', 'campaign', 'creator', 'reward', 'bounty'],
+      ['airdrop', 'testnet', 'quest', 'points', 'campaign', 'creator', 'reward', 'bounty', 'season'],
       [
-        'Airdrop Hunter Watch: Variational (VAR) is on airdrop radars following mainnet/trading activity, Tzero ($T0) allocates 11% supply to testnet/mission users, and Flop Labs/Network remains active on testnet.',
-        'Creator Campaign Update: Kaito Katalyst directs 80% of its token pool to creators based on attention/output metrics (and 20% to stakers/YT-sKAITO), expanding creator incentives on X.',
-        'Campaign & Reward Platforms: ChainGPT Buzz splits rewards across trackable links, on-chain/in-app quests, and stakers, while Wanted Network (WNTD) allocates 22% supply to creator missions and bounties.'
-      ]
+        'Airdrop radar: Variational (VAR), Tzero ($T0) 11% mission allocation, and Flop Labs testnet.',
+        'Creator campaigns: Kaito Katalyst directs 80% pool to creators via attention/output.',
+        'Reward hubs: ChainGPT Buzz splits quests/links/stakers; Wanted (WNTD) sets 22% for missions.'
+      ],
+      seenSet,
+      newlySeen
     ),
     fetchSectorHeadlines(
       feeds,
-      ['sec', 'regulation', 'stablecoin', 'layer 2', 'l2', 'adoption', 'bank', 'policy', 'wallet'],
+      ['sec', 'regulation', 'stablecoin', 'layer 2', 'l2', 'adoption', 'bank', 'policy', 'wallet', 'mica'],
       [
-        'Stablecoin adoption and cross-border payment rails across Layer 1 and Layer 2 networks continue to expand.',
-        'Clearer regulatory frameworks across major regions are encouraging participation from custodians and financial institutions.',
-        'Wallet UX improvements—such as account abstraction, smart wallets, and lower fees—are steadily lowering onboarding friction.'
-      ]
+        'Stablecoin rails and L1/L2 payment settlement continue expanding.',
+        'Clearer regional rules support broader institutional and custodian access.',
+        'Smart wallets and lower fees keep reducing user onboarding friction.'
+      ],
+      seenSet,
+      newlySeen
     )
   ]);
 
-  // Susun setiap bagian thread siap copy persis seperti X Thread Studio di dashboard
   const threadPosts = [
     [
       `Web3 Daily Notes (${dateStrEn}):`,
@@ -185,12 +244,12 @@ async function main() {
       formatLine('$SOL', prices.sol),
       `• Sentiment: ${sentiment}`,
       ``,
-      `Top 3 updates across each vertical today 🧵👇`
+      `Top 3 updates per vertical today 🧵👇`
     ].join('\n'),
 
     `1/ Market & On-Chain Flow\n\n${marketNews}`,
 
-    `2/ Web3 Cybersecurity\n\n${securityNews}\n\nAlways verify domains and check token approvals before signing.`,
+    `2/ Web3 Cybersecurity\n\n${securityNews}\n\nVerify domains & check approvals first.`,
 
     `3/ AI x Web3\n\n${aiNews}`,
 
@@ -198,16 +257,16 @@ async function main() {
 
     `5/ General Web3 & Regulation\n\n${generalNews}`,
 
-    `That's the wrap for today.\n\nWhich sector or campaign are you focusing on this week? Drop your thoughts below.`
+    `That's the wrap for today.\n\nWhich sector or campaign are you focusing on this week?`
   ];
 
-  // Kirim satu per satu agar masing-masing bubble chat di Telegram langsung siap Copy & Paste ke X
   for (const post of threadPosts) {
     await sendTelegramMessage(post);
     await new Promise((r) => setTimeout(r, 400));
   }
 
-  console.log('Semua draf thread (Hook + 5 Sektor + Closing) berhasil terkirim ke Telegram!');
+  saveSeenHeadlines([...seenList, ...newlySeen]);
+  console.log('Semua draf thread berhasil terkirim ke Telegram!');
 }
 
 main().catch((err) => {
