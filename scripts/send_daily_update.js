@@ -1,9 +1,27 @@
-const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
+const BOT_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
+const CHAT_ID = (process.env.TELEGRAM_CHAT_ID || '').trim();
 
 if (!BOT_TOKEN || !CHAT_ID) {
-  console.error('Error: TELEGRAM_BOT_TOKEN atau TELEGRAM_CHAT_ID belum diset di GitHub Secrets.');
+  console.error('ERROR: TELEGRAM_BOT_TOKEN atau TELEGRAM_CHAT_ID kosong! Cek Settings > Secrets and variables > Actions.');
   process.exit(1);
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function decodeXmlEntities(str) {
+  return String(str)
+    .replace(/&amp;/g, '&')
+    .replace(/&#039;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .trim();
 }
 
 async function fetchCryptoPrices() {
@@ -11,7 +29,7 @@ async function fetchCryptoPrices() {
     const res = await fetch(
       'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana&vs_currencies=usd&include_24hr_change=true'
     );
-    if (!res.ok) throw new Error('CoinGecko API error');
+    if (!res.ok) throw new Error(`CoinGecko HTTP ${res.status}`);
     const data = await res.json();
     return {
       btc: { price: data.bitcoin.usd, change: data.bitcoin.usd_24h_change },
@@ -27,7 +45,7 @@ async function fetchCryptoPrices() {
 async function fetchFearAndGreed() {
   try {
     const res = await fetch('https://api.alternative.me/fng/?limit=1');
-    if (!res.ok) throw new Error('Fear & Greed API error');
+    if (!res.ok) throw new Error(`FNG HTTP ${res.status}`);
     const data = await res.json();
     const item = data?.data?.[0];
     return item ? `${item.value} (${item.value_classification})` : 'N/A';
@@ -46,15 +64,17 @@ async function fetchTopHeadlines() {
 
   for (const feed of feeds) {
     try {
-      const res = await fetch(feed.url);
+      const res = await fetch(feed.url, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Web3DailyBot/1.0)' }
+      });
       if (!res.ok) continue;
       const xml = await res.text();
       const items = [...xml.matchAll(/<item>[\s\S]*?<title>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/title>[\s\S]*?<\/item>/g)]
         .slice(0, 3)
-        .map((m, idx) => `${idx + 1}. ${m[1].replace(/&amp;/g, '&').replace(/&#039;/g, "'").replace(/&quot;/g, '"').trim()}`);
+        .map((m, idx) => `${idx + 1}. ${escapeHtml(decodeXmlEntities(m[1]))}`);
 
       if (items.length > 0) {
-        results.push(`*${feed.sector}:*\n${items.join('\n')}`);
+        results.push(`<b>${escapeHtml(feed.sector)}:</b>\n${items.join('\n')}`);
       }
     } catch (e) {
       console.warn(`Failed fetching ${feed.sector}:`, e.message);
@@ -73,22 +93,22 @@ function formatLine(symbol, info) {
   return `• ${symbol}: ${priceStr} (${sign}${info.change.toFixed(2)}%)`;
 }
 
-async function sendToTelegram(text) {
+async function sendToTelegram(htmlText) {
   const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       chat_id: CHAT_ID,
-      text,
-      parse_mode: 'Markdown',
+      text: htmlText,
+      parse_mode: 'HTML',
       disable_web_page_preview: true
     })
   });
 
   const result = await res.json();
   if (!result.ok) {
-    throw new Error(`Telegram API Error: ${JSON.stringify(result)}`);
+    throw new Error(`Telegram API Error (${result.error_code}): ${result.description}`);
   }
   console.log('Berhasil terkirim ke Telegram!');
 }
@@ -108,15 +128,15 @@ async function main() {
   ]);
 
   const message = [
-    `🔥 *Web3 Daily Updates — ${dateStr}*`,
+    `🔥 <b>Web3 Daily Updates — ${escapeHtml(dateStr)}</b>`,
     ``,
-    `*Market Snapshot:*`,
+    `<b>Market Snapshot:</b>`,
     formatLine('$BTC', prices?.btc),
     formatLine('$ETH', prices?.eth),
     formatLine('$SOL', prices?.sol),
-    `• Sentiment: ${sentiment}`,
+    `• Sentiment: ${escapeHtml(sentiment)}`,
     ``,
-    headlines || '_No headlines fetched today._',
+    headlines || '<i>No headlines fetched today.</i>',
     ``,
     `👉 Open Command Center to polish your X thread.`
   ].join('\n');
@@ -125,6 +145,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error(err);
+  console.error(err.message);
   process.exit(1);
 });
