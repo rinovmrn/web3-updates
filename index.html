@@ -216,12 +216,13 @@
                         <i data-lucide="wand-2" class="w-3.5 h-3.5"></i>
                         <span>Parse into 5 Sectors</span>
                     </button>
-                    <button onclick="document.getElementById('telegram-raw-import').value = ''" class="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-slate-950/10 dark:bg-[#16120F] text-slate-700 dark:text-amber-200/70 hover:text-slate-950 dark:hover:text-white transition">
+                    <button onclick="clearTelegramImport()" class="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-slate-950/10 dark:bg-[#16120F] text-slate-700 dark:text-amber-200/70 hover:text-slate-950 dark:hover:text-white transition">
                         Clear
                     </button>
                 </div>
             </div>
-            <textarea id="telegram-raw-import" rows="2" placeholder="Paste the daily update messages copied from your Telegram bot here, then click 'Parse into 5 Sectors'..." class="w-full rounded-xl bg-amber-50/70 dark:bg-[#16120F] border border-amber-900/15 dark:border-amber-500/20 p-2.5 text-xs text-slate-800 dark:text-amber-50 focus:outline-none focus:ring-2 focus:ring-[#E58E26]"></textarea>
+            <textarea id="telegram-raw-import" rows="3" placeholder="Paste one or more messages copied from your Telegram bot (e.g. '1/ Market & On-Chain Flow...', '2/ Web3 Cybersecurity...', etc.), then click 'Parse into 5 Sectors'..." class="w-full rounded-xl bg-amber-50/70 dark:bg-[#16120F] border border-amber-900/15 dark:border-amber-500/20 p-2.5 text-xs text-slate-800 dark:text-amber-50 focus:outline-none focus:ring-2 focus:ring-[#E58E26]"></textarea>
+            <div id="import-feedback-banner" class="hidden text-xs font-medium px-3 py-2 rounded-xl border"></div>
         </section>
 
         <!-- Section 3: Main Workspace -->
@@ -239,59 +240,59 @@
                     </button>
                 </div>
 
-                <div class="p-4 rounded-2xl bg-[#FFFDF9] dark:bg-[#221C18] border border-amber-950/15 dark:border-amber-500/20 shadow-sm space-y-2">
-                    <div class="flex items-center justify-between">
+                <div id="card-security" class="p-4 rounded-2xl bg-[#FFFDF9] dark:bg-[#221C18] border border-amber-950/15 dark:border-amber-500/20 shadow-sm space-y-2 transition">
+                    <div class="flex items-center justify-between gap-2">
                         <label for="input-security" class="flex items-center gap-2 text-xs sm:text-sm font-bold text-rose-700 dark:text-rose-400">
                             <i data-lucide="shield-alert" class="w-4 h-4"></i>
                             <span>Web3 Cybersecurity (Top 3 Updates)</span>
                         </label>
-                        <span class="text-[11px] font-mono text-slate-400">Exploits • Audits • Phishing</span>
+                        <span id="badge-security" class="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-slate-200/70 dark:bg-[#16120F] text-slate-600 dark:text-amber-200/60">Default Sample</span>
                     </div>
-                    <textarea id="input-security" rows="3" oninput="generateXThread()" class="w-full rounded-xl bg-amber-50/70 dark:bg-[#16120F] border border-amber-900/15 dark:border-amber-500/20 p-3 text-xs sm:text-sm text-slate-800 dark:text-amber-50 focus:outline-none focus:ring-2 focus:ring-[#E58E26] leading-relaxed"></textarea>
+                    <textarea id="input-security" rows="3" oninput="markManualEdit('security'); generateXThread();" class="w-full rounded-xl bg-amber-50/70 dark:bg-[#16120F] border border-amber-900/15 dark:border-amber-500/20 p-3 text-xs sm:text-sm text-slate-800 dark:text-amber-50 focus:outline-none focus:ring-2 focus:ring-[#E58E26] leading-relaxed"></textarea>
                 </div>
 
-                <div class="p-4 rounded-2xl bg-[#FFFDF9] dark:bg-[#221C18] border border-amber-950/15 dark:border-amber-500/20 shadow-sm space-y-2">
-                    <div class="flex items-center justify-between">
+                <div id="card-ai" class="p-4 rounded-2xl bg-[#FFFDF9] dark:bg-[#221C18] border border-amber-950/15 dark:border-amber-500/20 shadow-sm space-y-2 transition">
+                    <div class="flex items-center justify-between gap-2">
                         <label for="input-ai" class="flex items-center gap-2 text-xs sm:text-sm font-bold text-violet-700 dark:text-violet-400">
                             <i data-lucide="cpu" class="w-4 h-4"></i>
                             <span>AI x Web3 (Top 3 Updates)</span>
                         </label>
-                        <span class="text-[11px] font-mono text-slate-400">AI Agents • DePIN • Compute</span>
+                        <span id="badge-ai" class="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-slate-200/70 dark:bg-[#16120F] text-slate-600 dark:text-amber-200/60">Default Sample</span>
                     </div>
-                    <textarea id="input-ai" rows="3" oninput="generateXThread()" class="w-full rounded-xl bg-amber-50/70 dark:bg-[#16120F] border border-amber-900/15 dark:border-amber-500/20 p-3 text-xs sm:text-sm text-slate-800 dark:text-amber-50 focus:outline-none focus:ring-2 focus:ring-[#E58E26] leading-relaxed"></textarea>
+                    <textarea id="input-ai" rows="3" oninput="markManualEdit('ai'); generateXThread();" class="w-full rounded-xl bg-amber-50/70 dark:bg-[#16120F] border border-amber-900/15 dark:border-amber-500/20 p-3 text-xs sm:text-sm text-slate-800 dark:text-amber-50 focus:outline-none focus:ring-2 focus:ring-[#E58E26] leading-relaxed"></textarea>
                 </div>
 
-                <div class="p-4 rounded-2xl bg-[#FFFDF9] dark:bg-[#221C18] border border-amber-950/15 dark:border-amber-500/20 shadow-sm space-y-2">
-                    <div class="flex items-center justify-between">
+                <div id="card-market" class="p-4 rounded-2xl bg-[#FFFDF9] dark:bg-[#221C18] border border-amber-950/15 dark:border-amber-500/20 shadow-sm space-y-2 transition">
+                    <div class="flex items-center justify-between gap-2">
                         <label for="input-market" class="flex items-center gap-2 text-xs sm:text-sm font-bold text-emerald-700 dark:text-emerald-400">
                             <i data-lucide="trending-up" class="w-4 h-4"></i>
                             <span>Market Analysis & On-Chain Flow (Top 3 Updates)</span>
                         </label>
-                        <span class="text-[11px] font-mono text-slate-400">ETF Flows • Liquidity • Macro</span>
+                        <span id="badge-market" class="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-slate-200/70 dark:bg-[#16120F] text-slate-600 dark:text-amber-200/60">Default Sample</span>
                     </div>
-                    <textarea id="input-market" rows="3" oninput="generateXThread()" class="w-full rounded-xl bg-amber-50/70 dark:bg-[#16120F] border border-amber-900/15 dark:border-amber-500/20 p-3 text-xs sm:text-sm text-slate-800 dark:text-amber-50 focus:outline-none focus:ring-2 focus:ring-[#E58E26] leading-relaxed"></textarea>
+                    <textarea id="input-market" rows="3" oninput="markManualEdit('market'); generateXThread();" class="w-full rounded-xl bg-amber-50/70 dark:bg-[#16120F] border border-amber-900/15 dark:border-amber-500/20 p-3 text-xs sm:text-sm text-slate-800 dark:text-amber-50 focus:outline-none focus:ring-2 focus:ring-[#E58E26] leading-relaxed"></textarea>
                 </div>
 
-                <div class="p-4 rounded-2xl bg-[#FFFDF9] dark:bg-[#221C18] border border-amber-950/15 dark:border-amber-500/20 shadow-sm space-y-2">
-                    <div class="flex items-center justify-between">
+                <div id="card-defi" class="p-4 rounded-2xl bg-[#FFFDF9] dark:bg-[#221C18] border border-amber-950/15 dark:border-amber-500/20 shadow-sm space-y-2 transition">
+                    <div class="flex items-center justify-between gap-2">
                         <label for="input-defi" class="flex items-center gap-2 text-xs sm:text-sm font-bold text-amber-700 dark:text-amber-400">
                             <i data-lucide="sparkles" class="w-4 h-4"></i>
                             <span>Airdrop Hunting & Creator Campaign (Top 3 Updates)</span>
                         </label>
-                        <span class="text-[11px] font-mono text-slate-400">Airdrops • Quests • Creator Programs</span>
+                        <span id="badge-defi" class="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-slate-200/70 dark:bg-[#16120F] text-slate-600 dark:text-amber-200/60">Default Sample</span>
                     </div>
-                    <textarea id="input-defi" rows="3" oninput="generateXThread()" class="w-full rounded-xl bg-amber-50/70 dark:bg-[#16120F] border border-amber-900/15 dark:border-amber-500/20 p-3 text-xs sm:text-sm text-slate-800 dark:text-amber-50 focus:outline-none focus:ring-2 focus:ring-[#E58E26] leading-relaxed"></textarea>
+                    <textarea id="input-defi" rows="3" oninput="markManualEdit('defi'); generateXThread();" class="w-full rounded-xl bg-amber-50/70 dark:bg-[#16120F] border border-amber-900/15 dark:border-amber-500/20 p-3 text-xs sm:text-sm text-slate-800 dark:text-amber-50 focus:outline-none focus:ring-2 focus:ring-[#E58E26] leading-relaxed"></textarea>
                 </div>
 
-                <div class="p-4 rounded-2xl bg-[#FFFDF9] dark:bg-[#221C18] border border-amber-950/15 dark:border-amber-500/20 shadow-sm space-y-2">
-                    <div class="flex items-center justify-between">
+                <div id="card-general" class="p-4 rounded-2xl bg-[#FFFDF9] dark:bg-[#221C18] border border-amber-950/15 dark:border-amber-500/20 shadow-sm space-y-2 transition">
+                    <div class="flex items-center justify-between gap-2">
                         <label for="input-general" class="flex items-center gap-2 text-xs sm:text-sm font-bold text-sky-700 dark:text-sky-400">
                             <i data-lucide="globe" class="w-4 h-4"></i>
                             <span>General Web3 & Regulation (Top 3 Updates)</span>
                         </label>
-                        <span class="text-[11px] font-mono text-slate-400">Adoption • Regulation • Infra</span>
+                        <span id="badge-general" class="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-slate-200/70 dark:bg-[#16120F] text-slate-600 dark:text-amber-200/60">Default Sample</span>
                     </div>
-                    <textarea id="input-general" rows="3" oninput="generateXThread()" class="w-full rounded-xl bg-amber-50/70 dark:bg-[#16120F] border border-amber-900/15 dark:border-amber-500/20 p-3 text-xs sm:text-sm text-slate-800 dark:text-amber-50 focus:outline-none focus:ring-2 focus:ring-[#E58E26] leading-relaxed"></textarea>
+                    <textarea id="input-general" rows="3" oninput="markManualEdit('general'); generateXThread();" class="w-full rounded-xl bg-amber-50/70 dark:bg-[#16120F] border border-amber-900/15 dark:border-amber-500/20 p-3 text-xs sm:text-sm text-slate-800 dark:text-amber-50 focus:outline-none focus:ring-2 focus:ring-[#E58E26] leading-relaxed"></textarea>
                 </div>
             </div>
 
@@ -433,6 +434,30 @@
             syncLiveMarketData(true);
         };
 
+        function setSectorBadge(key, state, labelText) {
+            const badge = document.getElementById(`badge-${key}`);
+            const card = document.getElementById(`card-${key}`);
+            if (!badge) return;
+
+            badge.textContent = labelText;
+
+            if (state === 'imported') {
+                badge.className = 'text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30';
+                if (card) {
+                    card.classList.add('ring-2', 'ring-emerald-500/50');
+                    setTimeout(() => card.classList.remove('ring-2', 'ring-emerald-500/50'), 2200);
+                }
+            } else if (state === 'manual') {
+                badge.className = 'text-[10px] font-mono font-semibold px-2.5 py-0.5 rounded-full bg-[#E58E26]/20 text-amber-900 dark:text-[#E58E26] border border-[#E58E26]/30';
+            } else {
+                badge.className = 'text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-slate-200/70 dark:bg-[#16120F] text-slate-600 dark:text-amber-200/60';
+            }
+        }
+
+        function markManualEdit(key) {
+            setSectorBadge(key, 'manual', 'Edited');
+        }
+
         function populateLatestSectorNews() {
             const securityEl = document.getElementById('input-security');
             const aiEl = document.getElementById('input-ai');
@@ -481,9 +506,20 @@
             }
         }
 
+        function clearTelegramImport() {
+            document.getElementById('telegram-raw-import').value = '';
+            const banner = document.getElementById('import-feedback-banner');
+            banner.classList.add('hidden');
+        }
+
         function importTelegramDigest() {
             const raw = document.getElementById('telegram-raw-import').value.trim();
+            const banner = document.getElementById('import-feedback-banner');
+            banner.classList.remove('hidden');
+
             if (!raw) {
+                banner.className = 'text-xs font-medium px-3 py-2 rounded-xl border bg-rose-500/10 border-rose-500/30 text-rose-800 dark:text-rose-300';
+                banner.textContent = 'Kolom masih kosong. Tempel dulu teks dari Telegram sebelum klik Parse into 5 Sectors.';
                 showToast('Paste Telegram digest text first.');
                 return;
             }
@@ -517,15 +553,46 @@
                 /(?:•\s*Ecosystem:\n+)([\s\S]*?)$/i
             ]);
 
-            let updatedCount = 0;
-            if (market) { document.getElementById('input-market').value = market; updatedCount++; }
-            if (security) { document.getElementById('input-security').value = security.replace(/\n+Verify domains & check approvals first\.?$/i, ''); updatedCount++; }
-            if (ai) { document.getElementById('input-ai').value = ai; updatedCount++; }
-            if (defi) { document.getElementById('input-defi').value = defi; updatedCount++; }
-            if (general) { document.getElementById('input-general').value = general; updatedCount++; }
+            const importedLabels = [];
+            const timeNow = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+            if (market) {
+                document.getElementById('input-market').value = market;
+                setSectorBadge('market', 'imported', `Imported ${timeNow}`);
+                importedLabels.push('Market & On-Chain Flow');
+            }
+            if (security) {
+                document.getElementById('input-security').value = security.replace(/\n+(?:Verify domains & check approvals first\.?|Always verify domains and check token approvals before signing\.?)$/i, '').trim();
+                setSectorBadge('security', 'imported', `Imported ${timeNow}`);
+                importedLabels.push('Web3 Cybersecurity');
+            }
+            if (ai) {
+                document.getElementById('input-ai').value = ai;
+                setSectorBadge('ai', 'imported', `Imported ${timeNow}`);
+                importedLabels.push('AI x Web3');
+            }
+            if (defi) {
+                document.getElementById('input-defi').value = defi;
+                setSectorBadge('defi', 'imported', `Imported ${timeNow}`);
+                importedLabels.push('Airdrop & Creator Campaigns');
+            }
+            if (general) {
+                document.getElementById('input-general').value = general;
+                setSectorBadge('general', 'imported', `Imported ${timeNow}`);
+                importedLabels.push('General Web3 & Regulation');
+            }
 
             generateXThread();
-            showToast(updatedCount > 0 ? `Imported ${updatedCount} sectors into dashboard!` : 'Could not detect section headers—check pasted format.');
+
+            if (importedLabels.length > 0) {
+                banner.className = 'text-xs font-medium px-3 py-2 rounded-xl border bg-emerald-500/15 border-emerald-500/35 text-emerald-900 dark:text-emerald-200';
+                banner.textContent = `Berhasil mengupdate ${importedLabels.length} sektor (${importedLabels.join(', ')}) dan menyegarkan preview X Thread di kanan.`;
+                showToast(`Imported ${importedLabels.length} sectors into dashboard!`);
+            } else {
+                banner.className = 'text-xs font-medium px-3 py-2 rounded-xl border bg-amber-500/15 border-amber-500/35 text-amber-900 dark:text-amber-200';
+                banner.textContent = 'Format header sektor belum terbaca otomatis. Pastikan teks menyertakan label seperti "1/ Market & On-Chain Flow", "2/ Web3 Cybersecurity", dst.';
+                showToast('Could not detect section headers.');
+            }
         }
 
         function updateDateHeader() {
@@ -599,6 +666,7 @@
 
             const marketBox = document.getElementById('input-market');
             marketBox.value = marketBox.value.trim() ? `${marketBox.value.trim()}\n${summaryLine}` : summaryLine;
+            markManualEdit('market');
             generateXThread();
             showToast(`Inserted ${labelMap[activeMarketTab]} summary into Market Analysis!`);
         }
@@ -744,8 +812,9 @@
         }
 
         function clearAllInputs() {
-            ['input-security', 'input-ai', 'input-market', 'input-defi', 'input-general'].forEach(id => {
-                document.getElementById(id).value = '';
+            ['security', 'ai', 'market', 'defi', 'general'].forEach(key => {
+                document.getElementById(`input-${key}`).value = '';
+                setSectorBadge(key, 'default', 'Empty');
             });
             generateXThread();
             showToast('All input fields cleared.');
