@@ -139,6 +139,7 @@ function formatLine(symbol, info) {
   return `• ${symbol} ${priceStr} (${sign}${info.change.toFixed(1)}%)`;
 }
 
+// ... existing code ...
 async function sendTelegramMessage(text) {
   const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
   const res = await fetch(url, {
@@ -157,10 +158,22 @@ async function sendTelegramMessage(text) {
   }
 }
 
+function getSessionLabel() {
+  if (process.env.RUN_SESSION && process.env.RUN_SESSION.trim()) {
+    return process.env.RUN_SESSION.trim();
+  }
+  const utcHour = new Date().getUTCHours();
+  if (utcHour >= 0 && utcHour < 8) return 'Morning Brief (10:00 WIB)';
+  if (utcHour >= 11 && utcHour < 16) return 'Evening Recap (20:00 WIB)';
+  return 'Scheduled Digest';
+}
+
 async function main() {
+  const startTime = Date.now();
   const seenList = loadSeenHeadlines();
   const seenSet = new Set(seenList);
   const newlySeen = [];
+  const sessionLabel = getSessionLabel();
 
   const dateStrEn = new Date().toLocaleDateString('en-US', {
     month: 'short',
@@ -168,76 +181,10 @@ async function main() {
   });
 
   const feeds = [
-    'https://www.coindesk.com/arc/outboundfeeds/rss/',
-    'https://cointelegraph.com/rss',
-    'https://decrypt.co/feed',
-    'https://thedefiant.io/feed',
-    'https://www.dlnews.com/arc/outboundfeeds/rss/'
-  ];
-
-  const [prices, sentiment, marketNews, securityNews, aiNews, airdropCreatorNews, generalNews] = await Promise.all([
-    fetchCryptoPrices(),
-    fetchFearAndGreed(),
-    fetchSectorHeadlines(
-      feeds,
-      ['bitcoin', 'ethereum', 'solana', 'etf', 'market', 'price', 'fed', 'macro', 'rwa', 'inflow', 'treasury'],
-      [
-        'Traders watch key support and resistance across BTC, ETH, and SOL.',
-        'Capital rotation across majors, RWA tokens, and US equities stays in focus.',
-        'Spot inflows and derivatives funding signal whether sell pressure is easing.'
-      ],
-      seenSet,
-      newlySeen
-    ),
-    fetchSectorHeadlines(
-      feeds,
-      ['hack', 'exploit', 'phishing', 'security', 'scam', 'vulnerability', 'drain', 'breach', 'audit', 'drainer'],
-      [
-        'Spoofed claim portals and phishing ads continue circulating on X.',
-        'Revoke unused token approvals on legacy router contracts regularly.',
-        'Address poisoning targets high-value transfers—verify full start & end chars.'
-      ],
-      seenSet,
-      newlySeen
-    ),
-    fetchSectorHeadlines(
-      feeds,
-      ['ai', 'agent', 'depin', 'compute', 'gpu', 'bittensor', 'render', 'fetch', 'model', 'inference'],
-      [
-        'Autonomous on-chain AI agents see growing use in liquidity and alert flows.',
-        'Decentralized compute and DePIN networks expand distributed inference capacity.',
-        'Verifiable AI proof systems gain traction as compute demand scales.'
-      ],
-      seenSet,
-      newlySeen
-    ),
-    fetchSectorHeadlines(
-      feeds,
-      ['airdrop', 'testnet', 'quest', 'points', 'campaign', 'creator', 'reward', 'bounty', 'season'],
-      [
-        'Airdrop radar: Variational (VAR), Tzero ($T0) 11% mission allocation, and Flop Labs testnet.',
-        'Creator campaigns: Kaito Katalyst directs 80% pool to creators via attention/output.',
-        'Reward hubs: ChainGPT Buzz splits quests/links/stakers; Wanted (WNTD) sets 22% for missions.'
-      ],
-      seenSet,
-      newlySeen
-    ),
-    fetchSectorHeadlines(
-      feeds,
-      ['sec', 'regulation', 'stablecoin', 'layer 2', 'l2', 'adoption', 'bank', 'policy', 'wallet', 'mica'],
-      [
-        'Stablecoin rails and L1/L2 payment settlement continue expanding.',
-        'Clearer regional rules support broader institutional and custodian access.',
-        'Smart wallets and lower fees keep reducing user onboarding friction.'
-      ],
-      seenSet,
-      newlySeen
-    )
-  ]);
-
+// ... existing code ...
   const threadPosts = [
     [
-      `Web3 Daily Notes (${dateStrEn}):`,
+      `Web3 Daily Notes (${dateStrEn}) • ${sessionLabel}:`,
       ``,
       formatLine('$BTC', prices.btc),
       formatLine('$ETH', prices.eth),
@@ -248,25 +195,15 @@ async function main() {
     ].join('\n'),
 
     `1/ Market & On-Chain Flow\n\n${marketNews}`,
-
-    `2/ Web3 Cybersecurity\n\n${securityNews}\n\nVerify domains & check approvals first.`,
-
-    `3/ AI x Web3\n\n${aiNews}`,
-
-    `4/ Airdrop Hunting & Creator Campaigns\n\n${airdropCreatorNews}`,
-
-    `5/ General Web3 & Regulation\n\n${generalNews}`,
-
-    `That's the wrap for today.\n\nWhich sector or campaign are you focusing on this week?`
-  ];
-
+// ... existing code ...
   for (const post of threadPosts) {
     await sendTelegramMessage(post);
     await new Promise((r) => setTimeout(r, 400));
   }
 
   saveSeenHeadlines([...seenList, ...newlySeen]);
-  console.log('Semua draf thread berhasil terkirim ke Telegram!');
+  const elapsedSec = ((Date.now() - startTime) / 1000).toFixed(1);
+  console.log(`Selesai (${sessionLabel}) dalam ${elapsedSec}s | ${threadPosts.length} pesan terkirim | ${newlySeen.length} headline baru.`);
 }
 
 main().catch((err) => {
