@@ -2,14 +2,12 @@ name: Daily Web3 Updates to Telegram
 
 on:
 schedule:
-# Morning Brief: 10:00 WIB (03:00 UTC)
 - cron: '0 3 * * *'
-# Evening Recap: 20:00 WIB (13:00 UTC)
 - cron: '0 13 * * *'
 workflow_dispatch:
 inputs:
 session:
-description: 'Optional session label (e.g. Morning Brief / Evening Recap)'
+description: 'Optional session label (Morning Brief / Evening Recap)'
 required: false
 default: 'Manual Run'
 
