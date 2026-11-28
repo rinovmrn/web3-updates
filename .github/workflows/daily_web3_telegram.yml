@@ -1,39 +1,33 @@
-name: Daily Web3 Updates to Telegram
-
-on:
-schedule:
-- cron: '0 3 * * *'
-- cron: '0 13 * * *'
-workflow_dispatch:
-inputs:
-session:
-description: 'Optional session label (Morning Brief / Evening Recap)'
-required: false
-default: 'Manual Run'
-
-jobs:
-send-update:
-runs-on: ubuntu-latest
-steps:
-- name: Checkout repository
-uses: actions/checkout@v4
-
-  - name: Setup Node.js
-    uses: actions/setup-node@v4
-    with:
-      node-version: '24'
-
-  - name: Run daily update script
-    env:
-      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-      RUN_SESSION: ${{ inputs.session }}
-    run: node scripts/send_daily_update.js
-
-  - name: Write GitHub Step Summary
-    if: always()
-    run: |
-      echo "### Web3 Daily Telegram Digest Run" >> $GITHUB_STEP_SUMMARY
-      echo "- **UTC Time:** $(date -u '+\%Y-\%m-\%d \%H:\%M:\%S UTC')" >> $GITHUB_STEP_SUMMARY
-      echo "- **Session:** ${RUN_SESSION:-Scheduled Cron}" >> $GITHUB_STEP_SUMMARY
-      echo "- **Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+{
+name: "Daily Web3 Updates to Telegram",
+on: {
+schedule: [
+{ cron: "0 3 * * *" },
+{ cron: "0 13 * * *" }
+],
+workflow_dispatch: {
+inputs: {
+session: {
+description: "Session label (e.g. Morning Brief / Evening Recap)",
+required: false,
+default: "Manual Run"
+}
+}
+}
+},
+jobs: {
+send-update: {
+runs-on: "ubuntu-latest",
+env: {
+TELEGRAM_BOT_TOKEN: "${{ secrets.TELEGRAM_BOT_TOKEN }}",
+TELEGRAM_CHAT_ID: "${{ secrets.TELEGRAM_CHAT_ID }}",
+RUN_SESSION: "${{ inputs.session }}"
+},
+steps: [
+{ uses: "actions/checkout@v4" },
+{ uses: "actions/setup-node@v4" },
+{ run: "node scripts/send_daily_update.js" }
+]
+}
+}
+}
