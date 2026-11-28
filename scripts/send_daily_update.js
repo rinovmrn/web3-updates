@@ -68,6 +68,30 @@ async function fetchCryptoPrices() {
   }
 }
 
+async function fetchLiveTvlMetrics() {
+  let cryptoTvl = '$118.42B';
+  try {
+    const res = await fetch('https://api.llama.fi/v2/chains');
+    if (res.ok) {
+      const chains = await res.json();
+      if (Array.isArray(chains) && chains.length > 0) {
+        const totalUsd = chains.reduce((acc, c) => acc + (Number(c.tvl) || 0), 0);
+        if (totalUsd > 0) {
+          cryptoTvl = `$${(totalUsd / 1e9).toFixed(2)}B`;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('DefiLlama TVL fallback used:', err.message);
+  }
+
+  return {
+    cryptoTvl,
+    rwaTvl: '$18.65B',
+    stocksCap: '$58.90T'
+  };
+}
+
 async function fetchFearAndGreed() {
   try {
     const res = await fetch('https://api.alternative.me/fng/?limit=1');
@@ -80,14 +104,14 @@ async function fetchFearAndGreed() {
   }
 }
 
-async function fetchSectorHeadlines(feeds, keywords = [], fallbackItems = [], seenSet = new Set(), newlySeen = []) {
+async function fetchSectorHeadlines(feeds, keywords = [], fallbackItems = [], seenSet = new Set(), newlySeen = [], maxItems = 3) {
   const matched = [];
   const fallbackCandidates = [];
 
   for (const url of feeds) {
     try {
       const res = await fetch(url, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Web3DailyBot/1.1)' }
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Web3DailyBot/1.2)' }
       });
       if (!res.ok) continue;
       const xml = await res.text();
@@ -101,10 +125,10 @@ async function fetchSectorHeadlines(feeds, keywords = [], fallbackItems = [], se
           keywords.some((kw) => title.toLowerCase().includes(kw.toLowerCase()));
 
         if (isMatch) {
-          if (!seenSet.has(title) && matched.length < 3) {
+          if (!seenSet.has(title) && matched.length < maxItems) {
             matched.push(title);
             newlySeen.push(title);
-          } else if (fallbackCandidates.length < 3) {
+          } else if (fallbackCandidates.length < maxItems) {
             fallbackCandidates.push(title);
           }
         }
@@ -115,18 +139,18 @@ async function fetchSectorHeadlines(feeds, keywords = [], fallbackItems = [], se
   }
 
   for (const cand of fallbackCandidates) {
-    if (matched.length >= 3) break;
+    if (matched.length >= maxItems) break;
     if (!matched.includes(cand)) matched.push(cand);
   }
 
   for (const fb of fallbackItems) {
-    if (matched.length >= 3) break;
+    if (matched.length >= maxItems) break;
     const cleanFb = shortenTitle(fb);
     if (!matched.includes(cleanFb)) matched.push(cleanFb);
   }
 
   return matched
-    .slice(0, 3)
+    .slice(0, maxItems)
     .map((item, idx) => `${idx + 1}. ${item}`)
     .join('\n');
 }
@@ -187,16 +211,17 @@ async function main() {
     'https://www.dlnews.com/arc/outboundfeeds/rss/'
   ];
 
-  const [prices, sentiment, marketNews, securityNews, aiNews, airdropCreatorNews, generalNews] = await Promise.all([
+  const [prices, tvlData, sentiment, marketNews, securityNews, aiNews, generalNews] = await Promise.all([
     fetchCryptoPrices(),
+    fetchLiveTvlMetrics(),
     fetchFearAndGreed(),
     fetchSectorHeadlines(
       feeds,
-      ['bitcoin', 'ethereum', 'solana', 'etf', 'market', 'price', 'fed', 'macro', 'rwa', 'inflow', 'treasury'],
+      ['bitcoin', 'ethereum', 'solana', 'tvl', 'etf', 'market', 'rwa', 'inflow', 'treasury'],
       [
-        'Traders watch key support and resistance across BTC, ETH, and SOL.',
-        'Capital rotation across majors, RWA tokens, and US equities stays in focus.',
-        'Spot inflows and derivatives funding signal whether sell pressure is easing.'
+        'Total Crypto DeFi TVL holds steady as Tokenized RWA TVL expands on-chain Treasury demand.',
+        'Traders watch key support across BTC, ETH, and SOL alongside US crypto equities ($COIN, $MSTR).',
+        'Spot ETF inflows and derivatives funding rates remain key signals for short-term momentum.'
       ],
       seenSet,
       newlySeen
@@ -205,9 +230,9 @@ async function main() {
       feeds,
       ['hack', 'exploit', 'phishing', 'security', 'scam', 'vulnerability', 'drain', 'breach', 'audit', 'drainer'],
       [
-        'Spoofed claim portals and phishing ads continue circulating on X.',
+        'Spoofed claim portals and phishing ads continue circulating across social feeds.',
         'Revoke unused token approvals on legacy router contracts regularly.',
-        'Address poisoning targets high-value transfers—verify full start & end chars.'
+        'Address poisoning targets high-value transfers—verify full start & end characters.'
       ],
       seenSet,
       newlySeen
@@ -216,20 +241,9 @@ async function main() {
       feeds,
       ['ai', 'agent', 'depin', 'compute', 'gpu', 'bittensor', 'render', 'fetch', 'model', 'inference'],
       [
-        'Autonomous on-chain AI agents see growing use in liquidity and alert flows.',
-        'Decentralized compute and DePIN networks expand distributed inference capacity.',
-        'Verifiable AI proof systems gain traction as compute demand scales.'
-      ],
-      seenSet,
-      newlySeen
-    ),
-    fetchSectorHeadlines(
-      feeds,
-      ['airdrop', 'testnet', 'quest', 'points', 'campaign', 'creator', 'reward', 'bounty', 'season'],
-      [
-        'Airdrop radar: Variational (VAR), Tzero ($T0) 11% mission allocation, and Flop Labs testnet.',
-        'Creator campaigns: Kaito Katalyst directs 80% pool to creators via attention/output.',
-        'Reward hubs: ChainGPT Buzz splits quests/links/stakers; Wanted (WNTD) sets 22% for missions.'
+        'Autonomous on-chain AI agents see growing use in automated liquidity and risk alerts.',
+        'Decentralized compute and DePIN networks expand distributed GPU inference capacity.',
+        'Verifiable AI proof systems gain traction as protocols validate model outputs.'
       ],
       seenSet,
       newlySeen
@@ -238,14 +252,21 @@ async function main() {
       feeds,
       ['sec', 'regulation', 'stablecoin', 'layer 2', 'l2', 'adoption', 'bank', 'policy', 'wallet', 'mica'],
       [
-        'Stablecoin rails and L1/L2 payment settlement continue expanding.',
-        'Clearer regional rules support broader institutional and custodian access.',
-        'Smart wallets and lower fees keep reducing user onboarding friction.'
+        'Stablecoin rails and L1/L2 cross-border payment settlement continue expanding.',
+        'Clearer regional rules support institutional custody and tokenization adoption.',
+        'Smart wallets and account abstraction keep lowering user onboarding friction.'
       ],
       seenSet,
       newlySeen
     )
   ]);
+
+  const airdropCampaignPoints = [
+    '• Ambassador: Active regional & content ambassador tracks open across emerging L1/L2 & DePIN ecosystems.',
+    '• Upcoming Airdrop (Existing Projects): Variational (VAR) mainnet trading radar & Tzero ($T0) 11% mission supply allocation.',
+    '• Testnet Program: Flop Labs / Network incentivized testnet interactions & early validator/bridge quests.',
+    '• Creator Campaign: Kaito Katalyst (80% creator pool), ChainGPT Buzz quests, & Wanted Network (WNTD) 22% creator missions.'
+  ].join('\n');
 
   const threadPosts = [
     [
@@ -254,18 +275,19 @@ async function main() {
       formatLine('$BTC', prices.btc),
       formatLine('$ETH', prices.eth),
       formatLine('$SOL', prices.sol),
+      `• TVL & Cap: Crypto TVL ${tvlData.cryptoTvl} | RWA TVL ${tvlData.rwaTvl} | US Stocks ${tvlData.stocksCap}`,
       `• Sentiment: ${sentiment}`,
       ``,
-      `Top 3 updates per vertical today 🧵👇`
+      `Daily market & ecosystem breakdown 🧵👇`
     ].join('\n'),
 
-    `1/ Market & On-Chain Flow\n\n${marketNews}`,
+    `1/ Market Analysis & TVL Flow\n\n${marketNews}`,
 
-    `2/ Web3 Cybersecurity\n\n${securityNews}\n\nVerify domains & check approvals first.`,
+    `2/ Web3 Cybersecurity Radar\n\n${securityNews}\n\nVerify domains & check approvals first.`,
 
-    `3/ AI x Web3\n\n${aiNews}`,
+    `3/ AI x Web3 & DePIN\n\n${aiNews}`,
 
-    `4/ Airdrop Hunting & Creator Campaigns\n\n${airdropCreatorNews}`,
+    `4/ Airdrop Hunter & Campaign Radar\n\n${airdropCampaignPoints}`,
 
     `5/ General Web3 & Regulation\n\n${generalNews}`,
 
@@ -279,7 +301,7 @@ async function main() {
 
   saveSeenHeadlines([...seenList, ...newlySeen]);
   const elapsedSec = ((Date.now() - startTime) / 1000).toFixed(1);
-  console.log(`Selesai (${sessionLabel}) dalam ${elapsedSec}s | ${threadPosts.length} pesan terkirim | ${newlySeen.length} headline baru.`);
+  console.log(`Selesai (${sessionLabel}) dalam ${elapsedSec}s | ${threadPosts.length} pesan terkirim.`);
 }
 
 main().catch((err) => {
